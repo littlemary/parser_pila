@@ -1,3 +1,4 @@
+from textwrap import wrap
 from pyModbusTCP.client import ModbusClient
 c = ModbusClient(host='10.0.6.10', port=502, unit_id=1, auto_open=True)
 
@@ -9,6 +10,34 @@ def modbus_start_connection():
         if c.is_open():
             return 1
     return 1
+def convert_base_(num, to_base=10, from_base=10):
+    # first convert to decimal number
+    n = int(num, from_base) if isinstance(num, str) else num
+    # now convert decimal to 'to_base' base
+    alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    res = ""
+    while n > 0:
+        n,m = divmod(n, to_base)
+        res += alphabet[m]
+    return res[::-1]
+
+def makelong(mystr):
+    mystrh = hex(mystr)
+    mystrs = str(mystrh)
+    h1 = mystrs[2:]
+    l = len(h1)
+    if l % 4!=0:
+        kol = 4-l % 4
+        for i in range(kol):
+            h1 = "0"+h1
+    n = wrap(h1, 4)
+    res = []
+    for cur in n:
+        mystrdecode = convert_base_(cur, 10, 16)
+        res.append(int(mystrdecode))
+    res1 = res[::-1]
+    return res1
+
 def check_value(c, num, step):
     # step 3 проверяем значение ready_take_sheet. должно быть 1
     res = c.read_coils(num)
@@ -23,6 +52,7 @@ def check_value(c, num, step):
             #str_res='Проблема со связью. Шаг '+step
             #return str_res
     return 1
+
 def modbus_write_array(result_arr):
 #step 1 записываем в 0 регистр все 0
     starting_address = 0x00
@@ -94,18 +124,21 @@ def modbus_write_array(result_arr):
         #bar_number
         output_address = 5
         output_value = int(cur[10])
-        output_value=1
         c.write_single_register(output_address, output_value)
         # bar_code
         output_address = 6
-        #output_value = int(cur[9])
-        output_value = 0
-        c.write_single_register(output_address, output_value)
+        output_value = int(cur[9])
+        arr_ = makelong(output_value)
+        c.write_multiple_registers(output_address, arr_)
+        #output_value = 0
+        #c.write_single_register(output_address, output_value)
+
         # article_profile
         output_address = 8
-        #output_value = int(cur[7])
-        output_value = 0
-        c.write_single_register(output_address, output_value)
+        output_value = int(cur[7])
+        arr_ = makelong(output_value)
+        c.write_multiple_registers(output_address, arr_)
+
         # qty_bar
         output_address = 10
         output_value = int(cur[8])
