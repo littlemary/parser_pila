@@ -52,6 +52,7 @@ def makearray(textstr, hex_arr):
     mystrdecode = textstr[68:80]
     data = bytes(mystrdecode, "utf-8")
     data1 = bytes.fromhex(data.decode("ascii"))
+
     result[6] = data1.decode('utf-8')
 
     # bar_number

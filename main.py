@@ -110,9 +110,9 @@ def startdata(self):
     if self.parser_complete==0 or len(self.result_arr)==0:
         make_message(self, u"Нет данных для отправки\nПодключите файл для разбора", "red")
         return
-    self.write_complete=1
-    check_changes(self)
-    return 0
+#    self.write_complete=1
+#    check_changes(self)
+#    return 0
     connect = modbus_start_connection()
     if connect == 0:
         make_message(self, u"Ошибка соединения с ПЛК", "red")
@@ -121,7 +121,10 @@ def startdata(self):
     if isinstance(write_modbus, str):
             make_message(self, write_modbus, "red")
             return
-    make_message(self, u"Порезка окончена", "red")
+    make_message(self, u"Запись окончена. Идет порезка", "red")
+    self.write_complete=1
+    check_changes(self)
+
     return
 
 def empty_table(self):
