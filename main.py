@@ -1,17 +1,64 @@
+import random
 from data_module import parse_array
 from modbus_function import modbus_start_connection
 from modbus_function import modbus_write_array
 
 
-from PyQt5 import uic, QtWidgets, QtGui
+from PyQt5 import uic, QtWidgets, QtGui, QtCore
 from PyQt5.QtWidgets import QApplication, QWidget,  QFileDialog
-from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtCore import QSize, Qt, QTimer
 
 Form, _ = uic.loadUiType("ui.ui")
 
 
 def make_message(self, msg, color):
     self.msg_label.setText(msg)
+    self.msg_label.setStyleSheet('background: '+color)
+
+def rewrite_table(self, id=1):
+        id_ = id-1
+        for i in range(10):
+            self.tableWidget.item(id_, i).setBackground(QtGui.QColor(199, 255, 175))
+        self.tableWidget.item(id_, 9).setText("выполнено")
+
+def get_changes_modbus(self):
+    endrecords = len(self.result_arr)
+    res = random.randint(1, endrecords)
+    return res
+
+
+def check_changes(self):
+     if self.parser_complete==0:
+         return
+     if self.write_complete==0:
+         return
+     kolrecords = len(self.result_arr)
+     self.cut_complete=1
+     self.count_cut=0
+     for cur in self.result_arr:
+         if cur[12]=='':
+             self.cut_complete = 0 # программа еще не закончена. порезаны не все записи
+         else:
+             self.count_cut += 1
+     if self.cut_complete==1:
+         make_message(self, u"Программа завершена", "green")
+         return 0
+
+     new_check = get_changes_modbus(self)
+     if self.cur_cut != new_check:
+         self.cur_cut = new_check
+         for curw in self.result_arr:
+             qty_num_ = int(curw[8])
+             if qty_num_ == self.cur_cut:
+                 curw[12] = '1'
+                 self.count_cut += 1
+                 msg = "Порезано " + str(self.count_cut) + " позиций из " + str(kolrecords)
+                 make_message(self, msg, "green")
+         rewrite_table(self, self.cur_cut)
+
+     self.timer.stop()
+     QTimer.singleShot(2000, self.s)  # 2 сек.
+
 
 def show_records_intable(self):
     kolrows = len(self.result_arr)
@@ -63,6 +110,9 @@ def startdata(self):
     if self.parser_complete==0 or len(self.result_arr)==0:
         make_message(self, u"Нет данных для отправки\nПодключите файл для разбора", "red")
         return
+    self.write_complete=1
+    check_changes(self)
+    return 0
     connect = modbus_start_connection()
     if connect == 0:
         make_message(self, u"Ошибка соединения с ПЛК", "red")
@@ -78,16 +128,18 @@ def empty_table(self):
     self.parser_complete=0
     self.write_complete=0
     self.cut_complete=0
+    self.cur_cut=0
     self.result_arr=[]
+    self.count_cut=0
     self.tableWidget.setColumnWidth(0, 100)
     self.tableWidget.horizontalHeaderItem(0).setToolTip("qty_bar")
     self.tableWidget.setColumnWidth(1, 100)
     self.tableWidget.horizontalHeaderItem(1).setToolTip("bar_length")
     self.tableWidget.setColumnWidth(2, 100)
     self.tableWidget.horizontalHeaderItem(2).setToolTip("angle_l/angle_r")
-    self.tableWidget.setColumnWidth(4, 100)
+    self.tableWidget.setColumnWidth(4, 150)
     self.tableWidget.horizontalHeaderItem(4).setToolTip("Вычисляемое")
-    self.tableWidget.setColumnWidth(5, 100)
+    self.tableWidget.setColumnWidth(5, 150)
     self.tableWidget.horizontalHeaderItem(5).setToolTip("real_size")
     self.tableWidget.setColumnWidth(6, 100)
     self.tableWidget.horizontalHeaderItem(6).setToolTip("article_profile")
@@ -101,10 +153,13 @@ def empty_table(self):
 
 class Ui(QtWidgets.QDialog, Form):
     def __init__(self):
-        result_arr = []
-        parser_complete=0
-        write_complete=0
-        cut_complete=0
+        self.result_arr = [] # массив данных
+        self.parser_complete=0 #парсер завершен
+        self.write_complete=0 #запись окончена
+        self.cut_complete=0 #резка окончена
+        self.cur_cut=0 #текущая позиция на резке
+        self.num=1
+        self.count_cut=0
         super(Ui, self).__init__()
         self.setupUi(self)
         self.pushButton.clicked.connect(self.importButtonPressed)
@@ -112,13 +167,21 @@ class Ui(QtWidgets.QDialog, Form):
         self.msg_label.setText(u"Подключите *.prg файл для парсера")
         empty_table(self)
         self.tableWidget.setColumnWidth(0,100)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.showTime)
 
     def importButtonPressed(self):
         import_from_file(self)
 
     def sendButtonPressed(self):
-        print ('hello')
         startdata(self)
+
+    def showTime(self):
+        self.num += 1
+
+    def s(self):
+        check_changes(self)
+
 
 
 if __name__=="__main__":
